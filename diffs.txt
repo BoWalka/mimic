@@ -1,0 +1,44 @@
+# Diffs applied to fix tokenizer loading and other issues
+
+## Original resume_train.py issues:
+1. Tokenizer loaded without use_fast=False, causing conversion error
+2. No token parameter for gated models
+3. Syntax error in base_model_name assignment
+4. Hardcoded CUDA device (should detect availability)
+
+## Applied diffs:
+
+### 1. Fix tokenizer loading (use_fast=False and token)
+Original:
+tokenizer = AutoTokenizer.from_pretrained(base_model_name)
+
+Fixed:
+tokenizer = AutoTokenizer.from_pretrained(base_model_name, use_fast=False, token=os.getenv("HF_TOKEN"))
+
+### 2. Fix base_model_name assignment
+Original:
+base_model_name = base_model_name = "reedmayhew/Grok-3-gemma3-4B-distilled"  # Original, unquantized for fine-tune #there was a comment here'
+
+Fixed:
+base_model_name = "reedmayhew/Grok-3-gemma3-4B-distilled"  # Original model
+
+### 3. Fix device detection in test generation
+Original:
+inputs = tokenizer("Chill test with my chat history", return_tensors="pt").to("cuda")
+
+Fixed:
+inputs = tokenizer("Chill test with my chat history", return_tensors="pt").to("cuda" if torch.cuda.is_available() else "cpu")
+
+## Execution commands used:
+- conda activate smallmodel
+- python resume_train.py (for testing)
+
+## Outputs from testing:
+- Initial error: ValueError: Converting from SentencePiece and Tiktoken failed
+- After fix: TypeError: not a string (vocab_file issue)
+- Resolution: Model missing tokenizer.model file, requires proper model setup or different model
+
+## Environment verification:
+- PyTorch version check: python -c "import torch; print(torch.__version__)"
+- CUDA availability: torch.cuda.is_available()
+- Installed packages: transformers, sentencepiece, datasets, peft, accelerate, bitsandbytes
